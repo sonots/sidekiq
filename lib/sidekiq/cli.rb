@@ -96,6 +96,7 @@ module Sidekiq
         launcher.stop
         # Explicitly exit so busy Processor threads can't block
         # process shutdown.
+        Sidekiq.logger.info "exit(0)"
         exit(0)
       end
     end

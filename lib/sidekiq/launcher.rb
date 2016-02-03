@@ -47,19 +47,28 @@ module Sidekiq
     def stop
       watchdog('Launcher#stop') do
         @done = true
+        Sidekiq.logger.info "#stop Sidekiq::Fetcher.done!"
         Sidekiq::Fetcher.done!
+        Sidekiq.logger.info "#stop fetcher.terminate"
         fetcher.terminate if fetcher.alive?
+        Sidekiq.logger.info "#stop poller.terminate"
         poller.terminate if poller.alive?
 
+        Sidekiq.logger.info "#stop manager.async.stop"
         manager.async.stop(:shutdown => true, :timeout => @options[:timeout])
+        Sidekiq.logger.info "#stop fire_event(:shutdown, true)"
         fire_event(:shutdown, true)
+        Sidekiq.logger.info "#stop condvar.wait"
         @condvar.wait
+        Sidekiq.logger.info "#stop manager.terminate"
         manager.terminate
 
         # Requeue everything in case there was a worker who grabbed work while stopped
         # This call is a no-op in Sidekiq but necessary for Sidekiq Pro.
+        Sidekiq.logger.info "#stop Sidekiq::Fetcher.strategy.bulk_requeue"
         Sidekiq::Fetcher.strategy.bulk_requeue([], @options)
 
+        Sidekiq.logger.info "#stop stop_heartbeat"
         stop_heartbeat
       end
     end

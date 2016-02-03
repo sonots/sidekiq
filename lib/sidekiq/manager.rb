@@ -53,18 +53,22 @@ module Sidekiq
         @ready.each { |x| x.terminate if x.alive? }
         @ready.clear
 
+        logger.info { "#stop clean_up_for_graceful_shutdown" }
         return if clean_up_for_graceful_shutdown
 
+        logger.info { "#stop hard_shutdown_in" }
         hard_shutdown_in timeout if should_shutdown
       end
     end
 
     def clean_up_for_graceful_shutdown
       if @busy.empty?
+        logger.info { "#clean_up_for_graceful_shutdown shutdown" }
         shutdown
         return true
       end
 
+      logger.info { "#clean_up_for_graceful_shutdown clean_up_for_graceful_shutdown" }
       after(SPIN_TIME_FOR_GRACEFUL_SHUTDOWN) { clean_up_for_graceful_shutdown }
       false
     end
@@ -79,32 +83,46 @@ module Sidekiq
 
     def processor_done(processor)
       watchdog('Manager#processor_done died') do
+        logger.info { "#processor_done @done_callback.call(processor)" }
         @done_callback.call(processor) if @done_callback
+        logger.info { "#processor_done @in_progress.delete(processor.object_id)" }
         @in_progress.delete(processor.object_id)
+        logger.info { "#processor_done @threads.delete(processor.object_id)" }
         @threads.delete(processor.object_id)
+        logger.info { "#processor_done @busy.delete(processor)" }
         @busy.delete(processor)
         if stopped?
+          logger.info { "#processor_done processor.terminate" }
           processor.terminate if processor.alive?
+          logger.info { "#processor_done shutdown" }
           shutdown if @busy.empty?
         else
+          logger.info { "#processor_done @ready << processor" }
           @ready << processor if processor.alive?
         end
+        logger.info { "#processor_done dispatch" }
         dispatch
       end
     end
 
     def processor_died(processor, reason)
       watchdog("Manager#processor_died died") do
+        logger.info { "#processor_died @in_progress.delete(processor.object_id)" }
         @in_progress.delete(processor.object_id)
+        logger.info { "#processor_died @threads.delete(processor.object_id)" }
         @threads.delete(processor.object_id)
+        logger.info { "#processor_died @busy.delete(processor)" }
         @busy.delete(processor)
 
         unless stopped?
           p = Processor.new_link(current_actor)
           p.proxy_id = p.object_id
+          logger.info { "#processor_died @ready << p" }
           @ready << p
+          logger.info { "#processor_died dispatch" }
           dispatch
         else
+          logger.info { "#processor_died shutdown" }
           shutdown if @busy.empty?
         end
       end
@@ -218,7 +236,9 @@ module Sidekiq
     end
 
     def shutdown
+      logger.info { "#shutdown requeue" }
       requeue
+      logger.info { "#shutdown finished.signal" }
       @finished.signal
     end
 
