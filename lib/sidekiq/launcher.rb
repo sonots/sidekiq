@@ -53,7 +53,16 @@ module Sidekiq
 
         manager.async.stop(:shutdown => true, :timeout => @options[:timeout])
         fire_event(:shutdown, true)
-        @condvar.wait
+        wait_timeout = @options[:timeout] ? @options[:timeout] + 1 : nil
+        begin
+          @condvar.wait(wait_timeout)
+        rescue Celluloid::ConditionError => e
+          if e.message.start_with?('timeout')
+            Sidekiq.logger.info "#{e.class} #{e.message} #{e.backtrace.first}"
+          else
+            raise e
+          end
+        end
         manager.terminate
 
         # Requeue everything in case there was a worker who grabbed work while stopped
