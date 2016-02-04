@@ -58,8 +58,17 @@ module Sidekiq
         manager.async.stop(:shutdown => true, :timeout => @options[:timeout])
         Sidekiq.logger.info "#stop fire_event(:shutdown, true)"
         fire_event(:shutdown, true)
-        Sidekiq.logger.info "#stop condvar.wait"
-        @condvar.wait
+        wait_timeout = @options[:timeout] ? @options[:timeout] + 1 : nil
+        Sidekiq.logger.info "#stop condvar.wait(#{wait_timeout}) object_id:#{@condvar.object_id}"
+        begin
+          @condvar.wait(wait_timeout)
+        rescue Celluloid::ConditionError => e
+          if e.message.start_with?('timeout')
+            Sidekiq.logger.info "#{e.class} #{e.message}"
+          else
+            raise e
+          end
+        end
         Sidekiq.logger.info "#stop manager.terminate"
         manager.terminate
 

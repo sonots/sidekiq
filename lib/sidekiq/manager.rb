@@ -238,7 +238,7 @@ module Sidekiq
     def shutdown
       logger.info { "#shutdown requeue" }
       requeue
-      logger.info { "#shutdown finished.signal" }
+      logger.info { "#shutdown finished.signal object_id:#{@finished.object_id}" }
       @finished.signal
     end
 
